@@ -1,0 +1,6 @@
+#!/bin/bash
+
+echo -e "\e[32mSync fork\e[0m"
+gh repo sync jonh-favo/omarchy
+git -C $OMARCHY_PATH fetch --tags upstream
+git -C $OMARCHY_PATH push --tags

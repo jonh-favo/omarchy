@@ -1,5 +1,7 @@
 #!/bin/bash
 
+omarchy-sync-fork
+
 omarchy_path="$HOME/.local/share/omarchy"
 
 # Ensure remote is reachable
