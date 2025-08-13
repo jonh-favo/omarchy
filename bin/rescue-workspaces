@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# Move all workspaces not on an active monitor to the *current* monitor.
+
+set -euo pipefail
+
+need() { command -v "$1" >/dev/null 2>&1 || { echo "Missing: $1" >&2; exit 1; }; }
+need hyprctl
+need jq
+
+# Active (enabled) monitors by numeric id
+ACTIVE_MON_IDS="$(hyprctl -j monitors | jq '[.[] | select(.disabled==false) | .id]')"
+
+# Find workspace ids whose monitorID is -1 (detached) OR not in ACTIVE_MON_IDS
+WS_TO_MOVE="$(hyprctl -j workspaces \
+  | jq --argjson active "$ACTIVE_MON_IDS" '
+      [.[] 
+        | select(.id != -1)                                   # skip special/-1
+        | select(.name != "special")                          # skip named special, just in case
+        | select(.monitorID == -1 or ($active | index(.monitorID) == null))
+      ]
+      | .[].id
+    ' \
+  | tr -d '\r' | tr '\n' ' ')"
+
+# Nothing to do?
+if [[ -z "${WS_TO_MOVE// }" ]]; then
+  exit 0
+fi
+
+# Yoink them home.
+for wid in $WS_TO_MOVE; do
+  hyprctl dispatch moveworkspacetomonitor "$wid" current >/dev/null
+done

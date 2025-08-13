@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# Switch audio output by alias: soundblaster | arcam | realtek | hdmi
+# Example: audio-set.sh arcam
+
+set -euo pipefail
+
+alias="${1-}"
+[[ -z "$alias" ]] && { echo "Usage: $(basename "$0") <soundblaster|arcam|realtek|hdmi>"; exit 2; }
+
+# Map your friendly names to sink *names* (from your list)
+declare -A SINKS=(
+  [soundblaster]="alsa_output.pci-0000_06_00.0.analog-stereo"
+  [arcam]="alsa_output.usb-ARCAM_ARCAM_USB_Audio_1.0_0000-00.analog-stereo"
+  [realtek]="alsa_output.pci-0000_0d_00.4.iec958-stereo"
+  [hdmi]="alsa_output.pci-0000_0b_00.1.hdmi-stereo"
+)
+
+# Normalize to lowercase and check alias
+alias="${alias,,}"
+if [[ -z "${SINKS[$alias]+x}" ]]; then
+  echo "Unknown alias: '$alias'"
+  echo "Valid: ${!SINKS[@]}"
+  exit 2
+fi
+
+target="${SINKS[$alias]}"
+
+# Verify the sink actually exists right now
+if ! pactl list short sinks | awk '{print $2}' | grep -qx "$target"; then
+  echo "Sink '$target' not found (is it unplugged or renamed?)."
+  echo "Available sinks:"
+  pactl list short sinks
+  exit 1
+fi
+
+# Switch default sink
+pactl set-default-sink "$target"
+
+# Move all currently playing streams to the new sink
+pactl list short sink-inputs | awk '{print $1}' | while read -r input; do
+  pactl move-sink-input "$input" "$target"
+done
+
+# Touch up with pamixer (ignore if pamixer not installed)
+if command -v pamixer >/dev/null; then
+  pamixer --sink "$target" --unmute || true
+  pamixer --sink "$target" --set-volume 100 || true
+fi
+
+# Optional desktop notification
+command -v notify-send >/dev/null && notify-send "Audio output changed" "→ $alias ($target)"
+
+echo "Switched to: $alias ($target)"
