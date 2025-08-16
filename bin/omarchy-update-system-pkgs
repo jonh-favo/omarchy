@@ -1,5 +1,9 @@
 #!/bin/bash
 
+echo -e "\e[32m\nUpdate Flatpak\e[0m"
+flatpak update -y
+echo
+
 echo -e "\e[32m\nUpdate system packages\e[0m"
 yay -Syu --noconfirm --ignore uwsm
 echo
